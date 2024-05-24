@@ -9,7 +9,7 @@
   "license": "MIT",
   "description": "",
   "dependencies": {
-    "@aztec/bb.js": "^0.40.1",
+    "@aztec/bb.js": "^0.41.0",
     "commander": "^12.1.0",
     "fastify": "^4.27.0",
     "level": "^8.0.1",
