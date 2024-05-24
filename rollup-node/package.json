@@ -1,0 +1,22 @@
+{
+  "name": "zpst-rollup-node",
+  "version": "1.0.0",
+  "main": "src/index.ts",
+  "scripts": {
+    "start": "ts-node src/index.ts"
+  },
+  "author": "Dmitry Vdovin <voidxnull@gmail.com>",
+  "license": "MIT",
+  "description": "",
+  "dependencies": {
+    "@aztec/bb.js": "^0.40.1",
+    "commander": "^12.1.0",
+    "ethers": "^6.12.1",
+    "fastify": "^4.27.0"
+  },
+  "devDependencies": {
+    "@tsconfig/node22": "^22.0.0",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.4.5"
+  }
+}
