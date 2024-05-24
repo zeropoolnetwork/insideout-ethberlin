@@ -60,28 +60,26 @@ export class MerkleTree {
     }
   }
 
-  async getBB() {
-    return this.bb;
+  async hash(left: Fr, right: Fr): Promise<Fr> {
+    return await this.bb.poseidon2Hash([left, right]);
   }
 
-  async hash(left: Fr, right: Fr): Promise<Fr> {
-    // await this.bb.pedersenInit();
-    let hashRes = await this.bb.poseidon2Hash([left, right]);
-    return hashRes;
+  async getLeaf(index: number): Promise<Fr> {
+    return (await this.storage.get(MerkleTree.indexToKey(0, index))) || this.zeros[this.levels];
   }
 
   static indexToKey(level: number, index: number): string {
     return `${level}-${index}`;
   }
 
-  async getIndex(leaf: Fr): Promise<number> {
-    for await (const [key, value] of this.storage.entries()) {
-      if (value.toString() === leaf.toString()) {
-        return Number(key.split('-')[1]);
-      }
-    }
-    return -1;
-  }
+  // async getIndex(leaf: Fr): Promise<number> {
+  //   for await (const [key, value] of this.storage.entries()) {
+  //     if (value.toString() === leaf.toString()) {
+  //       return Number(key.split('-')[1]);
+  //     }
+  //   }
+  //   return -1;
+  // }
 
   async root(): Promise<Fr> {
     return (await this.storage.get(MerkleTree.indexToKey(this.levels, 0))) || this.zeros[this.levels];
@@ -164,6 +162,10 @@ export class MerkleTree {
     keyValueToStore.forEach(o => {
       this.storage.set(o.key, o.value);
     });
+  }
+
+  capacity(): number {
+    return 2 ** (this.levels - 1);
   }
 
   // traverse from leaf to root with handler for target node and sibling node

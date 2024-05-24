@@ -12,7 +12,8 @@
     "@aztec/bb.js": "^0.40.1",
     "commander": "^12.1.0",
     "fastify": "^4.27.0",
-    "level": "^8.0.1"
+    "level": "^8.0.1",
+    "seedrandom": "^3.0.5"
   },
   "devDependencies": {
     "@tsconfig/node22": "^22.0.0",
