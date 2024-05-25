@@ -1,90 +1,62 @@
 mod common;
 mod rollup;
-// mod tx;
-// mod mining;
 
-use crate::common::mt::poseidon2;
-use crate::common::pub_encoding;
-// use crate::tx::Tx;
-// use crate::mining::MiningReq;
+use rollup::mining::RandomOracle;
 
-struct RollupState {
-    accounts: Field,
-    accounts_i: u32,
-    storage: Field,
-    storage_i: u32,
+
+global RANDOM_ORACLE_SIZE:u32=16;
+global HASH_PAYLOAD_SIZE:u32=4+RANDOM_ORACLE_SIZE;
+global HASH_U8_PAYLOAD_SIZE:u32=32*HASH_PAYLOAD_SIZE;
+
+struct RollupInput {
+    old_root: Field,
+    new_root: Field,
+    clock: Field,
+    oracle: RandomOracle<RANDOM_ORACLE_SIZE>
 }
 
-impl RollupState {
-    fn init(d: u64) -> RollupState {
-        RollupState {
-            accounts: d as Field,
-            accounts_i: 1,
-            storage: d as Field,
-            storage_i: 1,
-        }
-    }
-
+impl RollupInput {
     fn hash(self) -> Field {
-        poseidon2([
-            self.accounts,
-            self.accounts_i as Field,
-            self.storage,
-            self.storage_i as Field,
-        ])
+
+
+        let mut payload = [0; HASH_PAYLOAD_SIZE];
+        payload[0] = self.old_root;
+        payload[1] = self.new_root;
+        payload[2] = self.clock;
+        payload[3] = self.oracle.offset;
+        for i in 0..RANDOM_ORACLE_SIZE {
+            payload[4+i] = self.oracle.data[i];
+        }
+        
+        let mut bytes_payload = [0; HASH_U8_PAYLOAD_SIZE];
+
+        for i in 0..HASH_PAYLOAD_SIZE {
+            // use BE for Ethereum compatibility
+            let bytes = payload[i].to_be_bytes(32);
+            for j in 0..32 {
+                bytes_payload[i*32+j] = bytes[j];
+            }
+        }
+
+        let res = dep::std::hash::keccak256(bytes_payload, HASH_U8_PAYLOAD_SIZE);
+
+        let mut acc = 0;
+        for i in 0..32 {
+            acc = acc*256 + res[i] as Field;
+        }
+
+        acc
     }
 }
 
-global OutN = 1 << 4;
-global Depth = 20;
-global BatchSize = 1 << 4;
 
 fn main(
-    public_params_hash: pub [u8; pub_encoding::BYTES_IN_KECCAK256],
-    old: Field,
-    new: Field,
-    /// Time. Used to expire files that run out of money
-    time_now: Field,
-    /// Contract's balance change (due to external deposits, withdrawals)
-    delta: Field,
-    /// Seed from Random Oracle, used for mining
-    r: Field,
-    /// State before transaction
-    old_state: RollupState//,
-    // /// Mining requests, processed on old_state
-    // mining_reqs: [MiningReq; BatchSize],
-    // /// Transactions moving balances and creating files
-    // tx_reqs: [Tx<Depth,OutN>; BatchSize],
+    pubhash: pub Field,
+    input: RollupInput
 ) {
     assert_eq(
-        public_params_hash,
-        pub_encoding::keccak256field([
-            old,
-            new,
-            time_now,
-            delta,
-            r
-        ])
+        pubhash,
+        input.hash()
     );
-
-    // The plan for `main` is:
-    // 
-    // 1. Validate the mining requests,
-    // 2. Deposit tokens for miners,
-    // 3. Perform transactions,
-    // 4. Assert that the resulting state hashes to `new`
-
-    assert(1 != 2);
 }
 
-// #[test]
-// fn test_main() {
-//     let a: Field = 1000000;
-//     let bits = a.to_le_bits(10);
-//     for i in 0..bits.len() {
-//         let b = bits[i];
-//         println(f"{b}");
-//     }
-//     // Uncomment to make test fail
-//     // main(1, 1);
-// }

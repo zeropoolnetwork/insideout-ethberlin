@@ -1,6 +1,5 @@
 mod mt;
 mod ec;
-mod pub_encoding;
 
 
 pub fn from_le_bits<N>(bits: [u1;N]) -> Field {
