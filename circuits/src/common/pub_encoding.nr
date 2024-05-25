@@ -1,6 +1,6 @@
 use dep::std::hash;
 
-global BYTES_IN_FIELD = 8;
+global BYTES_IN_FIELD = 32;
 global HASHED_PUBS = 5;
 global KECCAK256_WIDTH = 32;
 
