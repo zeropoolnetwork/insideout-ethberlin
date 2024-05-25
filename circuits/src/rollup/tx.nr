@@ -7,11 +7,13 @@ struct Account {
     key: Field,
     /// Balance
     balance: Field,
+    // Nonce
+    nonce: Field
 }
 
 impl Account {
     fn hash(self) -> Field {
-        poseidon2([self.key, self.balance])
+        poseidon2([self.key, self.balance, self.nonce])
     }
 }
 
@@ -20,7 +22,8 @@ struct Tx {
     sender_index: Field,
     receiver_index: Field,
     receiver_key: Field,
-    amount: Field 
+    amount: Field,
+    nonce: Field
 }
 
 struct TxAssets<N> {
@@ -38,7 +41,7 @@ struct TxEx<N> {
 
 impl Tx {
     fn hash(self) -> Field {
-        poseidon2([self.sender_index, self.receiver_index, self.receiver_key, self.amount])
+        poseidon2([self.sender_index, self.receiver_index, self.receiver_key, self.amount, self.nonce])
     }
 }
 
@@ -68,14 +71,26 @@ impl<N> TxEx<N> {
         // prohibit self-sending
         assert(tx.sender_index != tx.receiver_index);
 
+        // check nonce
+        assert(assets.account_sender.nonce == tx.nonce);
+
         // deinitialize sender if balance is zero
         let new_account_sender = {
             let balance = assets.account_sender.balance - tx.amount;
-            let key = if balance == 0 {0} else {assets.account_sender.key};
-            Account {key, balance}
+            let (key, nonce) = if balance == 0 {
+                (0,0)
+            } else {
+                (assets.account_sender.key, tx.nonce + 1)
+            };
+
+            Account {key, balance, nonce}
         };
 
-        let new_account_receiver = Account {key: tx.receiver_key, balance: assets.account_receiver.balance + tx.amount};
+        let new_account_receiver = Account {
+            key: tx.receiver_key, 
+            balance: assets.account_receiver.balance + tx.amount
+            nonce: assets.account_receiver.nonce
+        };
 
         let mut cur = root;
 
