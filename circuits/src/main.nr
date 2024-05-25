@@ -5,6 +5,7 @@ mod rollup;
 // mod mining;
 
 use crate::common::mt::poseidon2;
+use crate::common::pub_encoding;
 // use crate::tx::Tx;
 // use crate::mining::MiningReq;
 
@@ -40,14 +41,15 @@ global Depth = 20;
 global BatchSize = 1 << 4;
 
 fn main(
-    old: pub Field,
-    new: pub Field,
+    public_params_hash: pub [u8; pub_encoding::BYTES_IN_KECCAK256],
+    old: Field,
+    new: Field,
     /// Time. Used to expire files that run out of money
-    time_now: pub u64,
+    time_now: Field,
     /// Contract's balance change (due to external deposits, withdrawals)
-    delta: pub u64,
+    delta: Field,
     /// Seed from Random Oracle, used for mining
-    r: pub Field,
+    r: Field,
     /// State before transaction
     old_state: RollupState//,
     // /// Mining requests, processed on old_state
@@ -55,6 +57,17 @@ fn main(
     // /// Transactions moving balances and creating files
     // tx_reqs: [Tx<Depth,OutN>; BatchSize],
 ) {
+    assert_eq(
+        public_params_hash,
+        pub_encoding::keccak256field([
+            old,
+            new,
+            time_now,
+            delta,
+            r
+        ])
+    );
+
     // The plan for `main` is:
     // 
     // 1. Validate the mining requests,
