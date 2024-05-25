@@ -1,9 +1,8 @@
-import Fastify from 'fastify';
-import { program } from 'commander';
 
-const state = {
-  nodes: new Map<string, string>(),
-};
+import { program } from 'commander';
+import express, { Express, Request, Response } from 'express';
+import http from 'node:http';
+import { Server as SocketIOServer } from 'socket.io';
 
 program
   .option('-p, --port <port>', 'Port to listen on', '3000');
@@ -11,44 +10,32 @@ program
 program.parse();
 const options = program.opts();
 
-const fastify = Fastify({
-  logger: true
+const app: Express = express();
+const server = new http.Server(app);
+const io = new SocketIOServer(server);
+
+io.on('connection', (socket) => {
+  console.log('New node connected');
+
+  socket.on('disconnect', () => {
+    console.log('Node disconnected');
+  });
+
+  socket.on('error', (err) => {
+    console.error('Socket error:', err);
+  });
 });
 
-fastify.post('/nodes/register', async function handler(request, reply) {
-  // @ts-ignore - TODO: Define body type
-  const url = request.body.url;
-  const id = Math.random().toString(36).substring(7);
+app.get('/files/:id', async (req: Request, res: Response) => {
+  const data: Buffer = await new Promise((resolve, reject) => {
+    io.emit('reqFile', req.params.id, (data: Buffer) => {
+      resolve(data);
+    });
+  });
 
-  state.nodes.set(id, url);
-
-  const pingInterval = setInterval(async () => {
-    fastify.log.debug(`Pinging node ${id}`);
-
-    // @ts-ignore - TODO: fix fetch type
-    const res = await fetch(`${url}/ping`);
-    const resJson = await res.json();
-
-    if (res.status !== 200 || resJson !== 'pong') {
-      fastify.log.error(`Node ${id} is down`, res);
-      state.nodes.delete(id);
-      clearInterval(pingInterval);
-    }
-  }, 1000 * 10);
-
-  return { id };
+  res.send(data);
 });
 
-async function main() {
-  try {
-    await fastify.listen({ port: options.port });
-  } catch (err) {
-    fastify.log.error(err);
-    process.exit(1);
-  }
-}
-
-main();
-
-
-
+server.listen(options.port, function () {
+  console.log(`listening on ${options.port}`);
+});
