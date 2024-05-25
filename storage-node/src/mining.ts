@@ -1,9 +1,9 @@
 import { Fr } from '@aztec/bb.js';
-import { MerkleTree } from './merkle-tree';
+import { SparseMerkleTree } from './sparse-merkle-tree';
 import seedrandom from 'seedrandom';
 
 // FIXME: WIP
-export async function mine(tree: MerkleTree, oracle: Fr, numSamples: number, nonce: number, difficulty: bigint): Promise<bigint> {
+export async function mine(tree: SparseMerkleTree, oracle: Fr, numSamples: number, nonce: number, difficulty: bigint): Promise<bigint> {
   const bb = tree.bb;
 
   let hash = 0n;
@@ -16,7 +16,7 @@ export async function mine(tree: MerkleTree, oracle: Fr, numSamples: number, non
   return hash;
 }
 
-async function sampleLeaves(tree: MerkleTree, numSamples: number, seed: number): Promise<Fr[]> {
+async function sampleLeaves(tree: SparseMerkleTree, numSamples: number, seed: number): Promise<Fr[]> {
   const rng = seedrandom(seed);
   const samples = [];
   const numLeaves = tree.capacity();
