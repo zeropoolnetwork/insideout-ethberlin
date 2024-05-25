@@ -1,4 +1,4 @@
-use crate::common::poseidon2;
+use crate::common::mt::poseidon2;
 
 struct Account {
     /// x coordinate of the owner account public key
