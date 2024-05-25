@@ -133,11 +133,11 @@ impl<N> TxEx<N> {
     }
 }
 
-struct TxBlock<M,N> {
+struct Block<M,N> {
     txs: [TxEx<N>; M]
 }
 
-impl<M,N> TxBlock<M,N> {
+impl<M,N> Block<M,N> {
     fn apply(self, acc_root:Field, data_root:Field, now:Field) -> (Field, Field) {
         let mut cur_acc = acc_root;
         let mut cur_data = data_root;

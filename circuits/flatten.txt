@@ -1,0 +1,742 @@
+// ==========
+// FILE PATH: src/rollup.nr
+// ==========
+
+mod tx;
+mod file;
+mod mining;
+
+// ==========
+// FILE PATH: src/common.nr
+// ==========
+
+mod mt;
+mod ec;
+
+
+pub fn from_le_bits<N>(bits: [u1;N]) -> Field {
+    let mut res = 0;
+    let mut cur = 1;
+    for i in 0..N {
+        res += cur * bits[i] as Field;
+        cur *= 2;
+    }
+    res
+}
+
+pub fn trim(f:Field, n:u32) -> Field {
+    let f_bits = f.to_le_bits(n);
+    let mut res = 0;
+    let mut cur = 1;
+    for i in 0..n {
+        res += cur * f_bits[i] as Field;
+        cur *= 2;
+    }
+    res
+}
+
+// ==========
+// FILE PATH: src/main.nr
+// ==========
+
+mod common;
+mod rollup;
+
+use rollup::mining::RandomOracle;
+
+
+global RANDOM_ORACLE_SIZE:u32=16;
+global HASH_PAYLOAD_SIZE:u32=4+RANDOM_ORACLE_SIZE;
+global HASH_U8_PAYLOAD_SIZE:u32=32*HASH_PAYLOAD_SIZE;
+
+struct RollupInput {
+    old_root: Field,
+    new_root: Field,
+    clock: Field,
+    oracle: RandomOracle<RANDOM_ORACLE_SIZE>
+}
+
+impl RollupInput {
+    fn hash(self) -> Field {
+
+
+        let mut payload = [0; HASH_PAYLOAD_SIZE];
+        payload[0] = self.old_root;
+        payload[1] = self.new_root;
+        payload[2] = self.clock;
+        payload[3] = self.oracle.offset;
+        for i in 0..RANDOM_ORACLE_SIZE {
+            payload[4+i] = self.oracle.data[i];
+        }
+        
+        let mut bytes_payload = [0; HASH_U8_PAYLOAD_SIZE];
+
+        for i in 0..HASH_PAYLOAD_SIZE {
+            // use BE for Ethereum compatibility
+            let bytes = payload[i].to_be_bytes(32);
+            for j in 0..32 {
+                bytes_payload[i*32+j] = bytes[j];
+            }
+        }
+
+        let res = dep::std::hash::keccak256(bytes_payload, HASH_U8_PAYLOAD_SIZE);
+
+        let mut acc = 0;
+
+        // use BE for Ethereum compatibility
+        for i in 0..32 {
+            acc = acc*256 + res[i] as Field;
+        }
+        acc
+    }
+}
+
+
+fn main(
+    pubhash: pub Field,
+    input: RollupInput
+) {
+    assert_eq(
+        pubhash,
+        input.hash()
+    );
+}
+
+
+#[test]
+fn test_rollup_input_hash() {
+    
+}
+
+// ==========
+// FILE PATH: src/rollup/tx.nr
+// ==========
+
+use crate::common::mt::{MerkleProof, poseidon2};
+use crate::common::ec::SignaturePacked;
+use crate::common::from_le_bits;
+
+struct Account {
+    /// x coordinate of the owner account public key
+    key: Field,
+    /// Balance
+    balance: Field,
+    // Nonce
+    nonce: Field,
+    // Mining nonce
+    random_oracle_nonce: Field
+}
+
+impl Account {
+    fn hash(self) -> Field {
+        poseidon2([self.key, self.balance, self.nonce, self.random_oracle_nonce])
+    }
+}
+
+
+struct Tx {
+    sender_index: Field,
+    receiver_index: Field,
+    receiver_key: Field,
+    amount: Field,
+    nonce: Field
+}
+
+struct TxAssets<N> {
+    proof_sender: MerkleProof<N>,
+    proof_receiver: MerkleProof<N>,
+    account_sender: Account,
+    account_receiver: Account,
+    signature: SignaturePacked,
+}
+
+struct TxEx<N> {
+    tx: Tx,
+    assets: TxAssets<N>
+}
+
+impl Tx {
+    fn hash(self) -> Field {
+        poseidon2([self.sender_index, self.receiver_index, self.receiver_key, self.amount, self.nonce])
+    }
+}
+
+
+impl<N> TxEx<N> {
+    pub fn apply(self, root: Field) -> Field {
+        let TxEx {tx, assets} = self;
+        let is_blank = assets.signature.a == 0;
+
+        // check signatures
+        let txhash = tx.hash();
+        assert(is_blank | (assets.signature.verify(txhash)));
+
+        // check overflows
+        assert(is_blank | (!assets.account_sender.balance.lt(tx.amount)));
+        assert(is_blank | (!(assets.account_receiver.balance + tx.amount).lt(assets.account_receiver.balance)));
+
+        // receiver should be correct or zero. Then we will initialize it with account_receiver
+        assert(is_blank | ((assets.account_receiver.key == tx.receiver_key) | (assets.account_receiver.key == 0)));
+
+        // sender should be correct
+        assert(is_blank | (assets.account_sender.key == assets.signature.a));
+
+        // check merkle paths
+        assert(is_blank | (tx.sender_index == from_le_bits(assets.proof_sender.index_bits)));
+        assert(is_blank | (tx.receiver_index == from_le_bits(assets.proof_receiver.index_bits)));
+        
+        // prohibit self-sending
+        assert(is_blank | (tx.sender_index != tx.receiver_index));
+
+        // check nonce
+        assert(is_blank | (assets.account_sender.nonce == tx.nonce));
+
+        // deinitialize sender if balance is zero
+        let new_account_sender = {
+            let balance = assets.account_sender.balance - tx.amount;
+            let (key, nonce, random_oracle_nonce) = if balance == 0 {
+                (0,0,0)
+            } else {
+                (assets.account_sender.key, tx.nonce + 1,assets.account_sender.random_oracle_nonce)
+            };
+
+            Account {key, balance, nonce, random_oracle_nonce}
+        };
+
+        let new_account_receiver = Account {
+            key: tx.receiver_key, 
+            balance: assets.account_receiver.balance + tx.amount,
+            nonce: assets.account_receiver.nonce,
+            random_oracle_nonce: assets.account_receiver.random_oracle_nonce
+        };
+
+        let mut cur = root;
+
+        // update sender
+        cur = assets.proof_sender.update(assets.account_sender.hash(), new_account_sender.hash(), cur);
+
+        // update receiver
+        cur = assets.proof_receiver.update(assets.account_receiver.hash(), new_account_receiver.hash(), cur);
+
+        if is_blank {
+            root
+        } else {
+            cur
+        }
+    }
+}
+
+struct TxBlock<M,N> {
+    txs: [TxEx<N>; M]
+}
+
+impl<M,N> TxBlock<M,N> {
+    fn apply(self, root:Field) -> Field {
+        let mut cur = root;
+        for i in 0..M {
+            cur = self.txs[i].apply(cur);
+        }
+        cur
+    }
+}
+
+// ==========
+// FILE PATH: src/rollup/mining.nr
+// ==========
+
+use crate::rollup::tx::Account;
+use crate::rollup::file::File;
+
+use crate::common::mt::{MerkleProof, poseidon2};
+use crate::common::ec::SignaturePacked;
+use crate::common::{from_le_bits, trim};
+
+
+global REV_DIFFICULTY: Field = 28269553036454149273332760011886696253239742350009903329945699220681916416; //1 << (254 - 10)
+global MAX_MINING_NONCE = 1048576; //1<<20
+global MINING_REWARD: Field = 1024; //1<<10
+
+
+struct RandomOracle<N> {
+    offset: Field,
+    data: [Field; N]
+}
+
+impl<N> RandomOracle<N> {
+    // get random_nonce of given data or -1 if not valid
+    fn get_nonce(self, data:Field) -> Field {
+        
+        let mut res = -1;
+        for i in 0..N {
+            if self.data[i] == data {
+                res = self.offset + i as Field;
+            }
+        }
+        res
+    }
+}
+
+
+struct Tx {
+    sender_index: Field,
+    nonce: Field,
+    random_oracle_nonce: Field,
+    mining_nonce: Field
+}
+
+struct TxAssets<N,K> {
+    proof_sender: MerkleProof<N>,
+    account_sender: Account,
+    random_oracle_value: Field,
+    // for simplicity we will make just one single lookup for data state
+    // should be changed in production
+    proof_file: MerkleProof<N>,
+    file: File,
+    proof_data_in_file: MerkleProof<K>,
+    data_in_file: Field,
+    signature: SignaturePacked
+
+}
+
+struct TxEx<N,K> {
+    tx: Tx,
+    assets: TxAssets<N,K>
+}
+
+impl Tx {
+    fn hash(self) -> Field {
+        poseidon2([self.sender_index, self.nonce, self.random_oracle_nonce, self.mining_nonce])
+    }
+}
+
+impl<N,K> TxEx<N,K> {
+    pub fn apply<O>(self, acc_root:Field, data_root:Field, random_oracle:RandomOracle<O>) -> Field {
+        let TxEx{tx, assets} = self;
+        let is_blank = assets.signature.a == 0;
+
+        // check signature
+        let txhash = tx.hash();
+        assert(is_blank | (assets.signature.verify(txhash)));
+
+        // check overflow
+        assert(is_blank | (!(assets.account_sender.balance + MINING_REWARD).lt(assets.account_sender.balance)));
+
+        // sender should be correct
+        assert(is_blank | (assets.account_sender.key == assets.signature.a));
+
+        // check merkle path for sender
+        assert(is_blank | (tx.sender_index == from_le_bits(assets.proof_sender.index_bits)));
+
+        // check nonce
+        assert(is_blank | (assets.account_sender.nonce == tx.nonce));
+
+        // check oracle value
+        assert(is_blank | (random_oracle.get_nonce(assets.random_oracle_value) == tx.random_oracle_nonce));
+
+        // check oracle nonce
+        assert(is_blank | (assets.account_sender.random_oracle_nonce.lt(tx.random_oracle_nonce)));
+
+        // check merkle proof for file
+        assert(is_blank | (assets.proof_file.root(assets.file.hash()) == data_root));
+        
+        // check merkle proof for data in file
+        assert(is_blank | (assets.proof_data_in_file.root(assets.data_in_file) == assets.file.data));
+        
+        ///// MINING BEGIN /////
+        {
+            let index = from_le_bits(assets.proof_data_in_file.index_bits) + ((1<<K) as Field) * from_le_bits(assets.proof_file.index_bits);
+            let bruteforce_hash = poseidon2([assets.signature.a, assets.random_oracle_value, tx.mining_nonce]);
+            let index_hash = poseidon2([bruteforce_hash]);
+
+            assert(is_blank | (index == trim(index_hash, N+K as u32)));
+
+            let mining_hash = poseidon2([bruteforce_hash, assets.data_in_file]);
+            assert(is_blank | (mining_hash.lt(REV_DIFFICULTY)));
+        }
+        ///// MINING END /////
+
+        // update account
+        let new_account_sender = Account {
+            key: assets.account_sender.key,
+            balance: assets.account_sender.balance + MINING_REWARD,
+            nonce: tx.nonce + 1,
+            random_oracle_nonce: tx.random_oracle_nonce
+        };
+
+        let new_acc_root = assets.proof_sender.update(acc_root, assets.account_sender.hash(), new_account_sender.hash());
+
+        if is_blank {
+            new_acc_root
+        } else {
+            acc_root
+        }
+    }
+}
+
+struct TxBlock<M,N,K> {
+    txs: [TxEx<N,K>; M]
+}
+
+impl<M,N,K> TxBlock<M,N,K> {
+    fn apply<O>(self, acc_root:Field, data_root:Field, random_oracle:RandomOracle<O>) -> Field {
+        let mut cur = acc_root;
+        for i in 0..M {
+            cur = self.txs[i].apply(cur, data_root, random_oracle);
+        }
+        cur
+    }
+}
+
+// ==========
+// FILE PATH: src/rollup/file.nr
+// ==========
+
+use crate::common::mt::{MerkleProof, poseidon2};
+use crate::common::ec::SignaturePacked;
+use crate::common::from_le_bits;
+
+use crate::rollup::tx::Account;
+
+// hardcode price for storing
+global PRICE: Field = 1;
+
+struct File {
+    /// Until when was it paid for
+    expiration_time: Field,
+    /// Who owns it (and has the right to delete/modify).
+    /// `owner == 0` means that the file was erased
+    owner: Field,
+    /// Merkle Root of the data
+    data: Field,
+}
+
+
+impl File {
+    pub fn is_writeable(self, now:Field, sender:Field) -> bool {
+        let expired = self.expiration_time.lt(now);
+        let empty = self.owner == 0;
+        let owned = self.owner == sender;
+
+        expired | empty | owned
+    }
+
+    pub fn hash(self) -> Field {
+        poseidon2([self.expiration_time, self.owner, self.data])
+    }
+}
+
+struct Tx {
+    sender_index: Field,
+    data_index: Field,
+    time_interval: Field,
+    data: Field,
+    nonce: Field
+}
+
+struct TxAssets<N> {
+    proof_sender: MerkleProof<N>,
+    proof_file: MerkleProof<N>,
+    account_sender: Account,
+    file: File,
+    signature: SignaturePacked,
+}
+
+struct TxEx<N> {
+    tx: Tx,
+    assets: TxAssets<N>
+}
+
+impl Tx {
+    pub fn hash(self) -> Field {
+        poseidon2([self.sender_index, self.data_index, self.time_interval, self.data, self.nonce])
+    }
+}
+
+impl<N> TxEx<N> {
+    pub fn apply(self, acc_root:Field, data_root:Field, now:Field) -> (Field, Field) {
+        let TxEx{tx, assets} = self;
+        let is_blank = assets.signature.a == 0;
+        
+        // check signature
+        let txhash = tx.hash();
+        assert(is_blank | (assets.signature.verify(txhash)));
+
+        let fee = PRICE * tx.time_interval;
+
+        // check overflow
+        assert(is_blank | (!assets.account_sender.balance.lt(fee)));
+
+        // sender should be correct
+        assert(is_blank | (assets.account_sender.key == assets.signature.a));
+
+        // check merkle path for sender
+        assert(is_blank | (tx.sender_index == from_le_bits(assets.proof_sender.index_bits)));
+
+        // check nonce
+        assert(is_blank | (assets.account_sender.nonce == tx.nonce));
+
+        // deinitialize sender if balance is zero
+        let new_account_sender = {
+            let balance = assets.account_sender.balance - fee;
+            let (key, nonce, random_oracle_nonce) = if balance == 0 {
+                (0,0,0)
+            } else {
+                (assets.account_sender.key, tx.nonce + 1, assets.account_sender.random_oracle_nonce)
+            };
+
+            Account {key, balance, nonce, random_oracle_nonce}
+        };
+
+        // update sender
+        let new_acc_root = assets.proof_sender.update(assets.account_sender.hash(), new_account_sender.hash(), acc_root);
+
+        // check access to the file
+        assert(is_blank | (assets.file.is_writeable(now, assets.account_sender.key)));
+
+        // check merkle path for file
+        assert(is_blank | (tx.data_index == from_le_bits(assets.proof_file.index_bits)));
+
+        // update file
+        let new_file = {
+            let expiration_time = (if assets.file.expiration_time.lt(now) {
+                now
+            } else {
+                assets.file.expiration_time 
+            }) + tx.time_interval;
+
+            let data =  if tx.data == 0 {
+                assets.file.data
+            } else {
+                tx.data
+            };
+
+            File {
+                expiration_time,
+                owner: assets.account_sender.key,
+                data
+            }
+        };
+
+        let new_data_root = assets.proof_file.update(assets.file.hash(), new_file.hash(), data_root);
+        if is_blank {
+            (acc_root, data_root)
+        } else {   
+            (new_acc_root, new_data_root)
+        }
+    }
+}
+
+struct TxBlock<M,N> {
+    txs: [TxEx<N>; M]
+}
+
+impl<M,N> TxBlock<M,N> {
+    fn apply(self, acc_root:Field, data_root:Field, now:Field) -> (Field, Field) {
+        let mut cur_acc = acc_root;
+        let mut cur_data = data_root;
+
+        for i in 0..M {
+            let (acc, data) = self.txs[i].apply(cur_acc, cur_data, now);
+            cur_acc = acc;
+            cur_data = data;
+        }
+        
+        (cur_acc, cur_data)
+    }
+}
+
+
+// ==========
+// FILE PATH: src/common/mt.nr
+// ==========
+
+use dep::std::hash::poseidon2::{Poseidon2, Poseidon2Hasher};
+
+
+struct MerkleProof<N> {
+    index_bits: [u1; N],
+    hash_path: [Field; N],
+}
+
+
+impl<N> MerkleProof<N> {
+    pub fn root(self, leaf: Field) -> Field {
+        merkle_root_from_path(leaf, self)
+    }
+
+    pub fn update(self, leaf: Field, new_leaf: Field, old_root: Field) -> Field {
+        assert(self.root(leaf) == old_root);
+        self.root(new_leaf)
+    }
+    
+}
+
+/// Path and proof start with indices that are close to the leaf
+pub fn merkle_root_from_path<N>(leaf: Field, proof:MerkleProof<N>) -> Field {
+    let n = proof.hash_path.len();
+    let mut current = leaf;
+    for i in 0..n {
+        let path_bit = proof.index_bits[i] as bool;
+        let next = proof.hash_path[i];
+        let (hash_left, hash_right) = if path_bit {
+            (next, current)
+        } else {
+            (current, next)
+        };
+        current = poseidon2([hash_left, hash_right]);
+    }
+    current
+}
+
+
+
+
+/// Helper around Noir's clunky API
+pub fn poseidon2<N>(input: [Field; N]) -> Field {
+    Poseidon2::hash(input, input.len())
+}
+
+
+// use dep::std::hash::poseidon2::Poseidon2Hasher;
+
+// let mut hasher = Poseidon2Hasher::default();
+// eddsa_verify_with_hasher(pub_key_a.x, pub_key_a.y, s_a, r8_a.x, r8_a.y, msg, &mut hasher);
+
+// ==========
+// FILE PATH: src/common/ec.nr
+// ==========
+
+use dep::std::ec::tecurve::affine::Curve;
+use dep::std::ec::consts::te::baby_jubjub;
+use dep::std::ec::sqrt;
+use dep::std::hash::poseidon::PoseidonHasher;
+
+use dep::std::ec::tecurve::affine::Point;
+use dep::std::eddsa::eddsa_verify_with_hasher;
+
+
+
+struct SignaturePacked {
+    a: Field,
+    s: Field,
+    r8: Field
+}
+
+impl SignaturePacked {
+    pub fn verify(self, msg:Field) -> bool {
+        let a = subgroup_decompress(self.a);
+        let r8 = subgroup_decompress(self.r8);
+
+        let mut hasher = PoseidonHasher::default();
+        eddsa_verify_with_hasher(a.x, a.y, self.s, r8.x, r8.y, msg, &mut hasher)
+    }
+}
+
+
+pub fn subgroup_decompress(x: Field) -> Point {
+    let bjj = baby_jubjub();
+    let p = subgroup_decompress_one_eighth(x);
+
+    assert(bjj.curve.contains(p));
+    
+    let p8 = bjj.curve.mul(8, p);
+    assert(p8.x == x);
+
+    p8
+}
+
+
+unconstrained fn subgroup_decompress_one_eighth(x: Field) -> Point {
+    let one_eighth: Field = 2394026564107420727433200628387514462817212225638746351800188703329891451411;
+    let bjj = baby_jubjub();
+    
+    let x2 = x * x;
+    let nom = 1 - bjj.curve.a * x2;
+    let denom = 1 - bjj.curve.d * x2;
+    let y = sqrt(nom / denom);
+
+    let p = Point::new(x, y);
+    
+    let Point {x:lx, y:ly} = bjj.curve.mul(bjj.suborder , p);
+
+    let res = if lx == 0 {
+        if ly == 1 {
+            Point::new(x, y)
+        } else {
+            Point::new(x, -y)
+        }
+    } else {
+        // Send wrong value to fail the check in the circuit
+        Point::new(0, 1)
+    };
+
+    bjj.curve.mul(one_eighth, res)
+}
+
+
+#[test]
+fn test_eddsa_verify_0() {
+    // Taken from the following data:
+    // pk = Point { x: Fr(0x197fdaae6930469533912e344e07e72a3648537c7c84872979216b0feecc66c0), y: Fr(0x2f6466dc2a09a630d8810db1ce67943d27829d9cc8c53ba7b2b964bf9da849cf) }
+    // sig = Signature { r_b8: Point { x: Fr(0x213bce1651b35d118a107deb7ad941fd84acb4427fb97f4525574842652106cb), y: Fr(0x13da34bcaf6f215440039e36dbfdc22fe8870aa13519caa22f4c40e637cc4d57) }, s: 2331457278607009735600634377034838521407040039511862771249660037197147222050 }
+    // msg = 123456789012345678901234567890
+    //
+    // Taken from https://github.com/arnaucube/babyjubjub-rs/blob/367ee99d8d15313795aa6e75adbe874c404c7235/src/lib.rs#L565
+    let s = SignaturePacked {
+        a: 0x197fdaae6930469533912e344e07e72a3648537c7c84872979216b0feecc66c0,
+        s: 2331457278607009735600634377034838521407040039511862771249660037197147222050,
+        r8: 0x213bce1651b35d118a107deb7ad941fd84acb4427fb97f4525574842652106cb,
+    };
+    assert(s.verify(123456789012345678901234567890));
+}
+
+#[test]
+fn test_eddsa_verify_1() {
+    // pk = Point { x: Fr(0x10935fd5b96cbecb172faac0eb39c8bf2723657447c4b4eb25e3cdda65a884b2), y: Fr(0x00f95651577b492cc34596c3145ee6c66ea504c81d7c69aa6daf2043d3a71243) }
+    // sig = Signature { r_b8: Point { x: Fr(0x28535d59d9066b35df8441c156da49b310523835dedfbf6aea4012d11ce6d931), y: Fr(0x0c77446d64675d55fe2aa49f1d4160ba5a7bed319d63ba7e224eca7620ed0965) }, s: 1426372084044121736122992573070463971308106428625281813611574795316037851300 }
+    // msg = 5
+    let s = SignaturePacked {
+        a: 0x10935fd5b96cbecb172faac0eb39c8bf2723657447c4b4eb25e3cdda65a884b2,
+        s: 1426372084044121736122992573070463971308106428625281813611574795316037851300,
+        r8: 0x28535d59d9066b35df8441c156da49b310523835dedfbf6aea4012d11ce6d931,
+    };
+    assert(s.verify(5));
+}
+
+// generated with https://github.com/HastilyConceivedCreatures/safecat/
+#[test]
+fn test_eddsa_verify_2() {
+   let s = SignaturePacked {
+        a: 11828020974661714696713694513126159991727458242399332189421416923447072843741,
+        s: 2025881153938235403708041462012051916442771317472647005053153506543823359806,
+        r8: 6487494902383033640348380877452672566142465036218452328715805307268650111091,
+    };
+    assert(s.verify(8878059966189193382802977823712463973754402735069032857603633822993028222807));
+}
+
+#[test]
+fn test_subgroup_decompress_valid_points() {
+    let bjj = baby_jubjub();
+   
+
+    let scalars = [42, 1337, 9876543210];
+
+    for scalar in scalars {
+        let p = bjj.curve.mul(scalar, bjj.base8);
+        let decomp_p = subgroup_decompress(p.x);
+
+        assert(decomp_p.x == p.x);
+        assert(decomp_p.y == p.y);
+    }
+}
+
+#[test(should_fail)]
+fn test_subgroup_decompress_invalid_point() {
+
+    let invalid_x = 124;
+    let decomp_p = subgroup_decompress(invalid_x);
+
+
+    assert(decomp_p.x == invalid_x);
+}
+
