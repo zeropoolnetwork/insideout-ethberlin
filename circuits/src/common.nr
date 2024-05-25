@@ -11,10 +11,10 @@ impl Eq for MerkleRoot {
     }
 }
 
+/// Path and proof start with indices that are close to the leaf
 fn merkle_root_from_path<N>(leaf: Hash, path: [u1; N], proof: [Hash; N]) -> Hash {
     let mut acc = leaf;
-    // I hope the decreasing .. syntax works this way in Noir, the docs are unclear about it.
-    for i in (proof.len()-1) .. 0 {
+    for i in 0 .. proof.len() {
         acc = if path[i] == 1 {
             poseidon2([acc, proof[i]])
         } else {
@@ -33,8 +33,14 @@ impl MerkleRoot {
         MerkleRoot { hash: v }
     }
 
-    fn update<N>(&mut self, path: [u1; N], proof: [Hash; N], old_leaf: Hash, new_leaf: Hash) {
-        assert_eq((*self).hash, merkle_root_from_path(old_leaf, path, proof));
+    /// Assert that the leaf has given hash
+    fn assert_leaf<N>(self, leaf: Hash, path: [u1; N], proof: [Hash; N]) {
+        assert_eq(self.hash, merkle_root_from_path(leaf, path, proof));
+    }
+
+    /// Replace old leaf by the new one
+    fn set<N>(&mut self, old_leaf: Hash, new_leaf: Hash, path: [u1; N], proof: [Hash; N]) {
+        (*self).assert_leaf(old_leaf, path, proof);
         (*self).hash = merkle_root_from_path(new_leaf, path, proof);
     }
 }
