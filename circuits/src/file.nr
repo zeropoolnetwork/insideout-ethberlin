@@ -1,5 +1,5 @@
 use dep::std::hash;
-use crate::common::{IdenKey, MerkleRoot,Hash};
+use crate::common::{IdenKey, MerkleRoot, Hash, poseidon2};
 
 struct File {
     /// Until when was it paid for
@@ -12,6 +12,6 @@ struct File {
 
 impl File {
     fn hash(self) -> Hash {
-        hash::pedersen_hash([self.expiryTime, self.owner, self.data.hash])
+        poseidon2([self.expiryTime, self.owner, self.data.hash])
     }
 }

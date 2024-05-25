@@ -1,5 +1,5 @@
 use dep::std::hash;
-use crate::common::{IdenKey, Hash, bool2field};
+use crate::common::{IdenKey, Hash, poseidon2};
 
 struct Account {
     /// Signing PK hash
@@ -12,6 +12,6 @@ struct Account {
 
 impl Account {
     fn hash(self) -> Hash {
-        hash::pedersen_hash([self.owner, self.balance, bool2field(self.spent)])
+        poseidon2([self.owner, self.balance, self.spent as Field])
     }
 }

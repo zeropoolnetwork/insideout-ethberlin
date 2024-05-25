@@ -29,12 +29,7 @@ impl MerkleRoot {
     }
 }
 
-// I couldn't find a library function for this
-pub fn bool2field(b: bool) -> Field {
-    if b { 1 } else { 0 }
-}
-
 /// Helper around Noir's clunky API
-pub fn poseidon2hash<N>(input: [Field; N]) -> Field {
-
+pub fn poseidon2<N>(input: [Field; N]) -> Field {
+    dep::std::hash::poseidon2::Poseidon2::hash(input, input.len())
 }

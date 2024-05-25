@@ -2,9 +2,7 @@ mod account;
 mod file;
 mod common;
 
-use dep::std::hash::pedersen_hash;
-// dep::std::hash::poseidon2::Poseidon2
-use crate::common::{MerkleRoot, Hash};
+use crate::common::{MerkleRoot, Hash, poseidon2};
 
 struct RollupState {
     accounts: MerkleRoot,
@@ -22,7 +20,7 @@ impl RollupState {
     }
 
     fn hash(self) -> Hash {
-        pedersen_hash([self.accounts.hash, self.storage.hash])
+        poseidon2([self.accounts.hash, self.storage.hash])
     }
 }
 
