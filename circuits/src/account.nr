@@ -2,10 +2,10 @@ use dep::std::hash;
 use crate::common::{IdenKey, Hash, bool2field};
 
 struct Account {
-		/// Signing PK hash
+    /// Signing PK hash
     owner: IdenKey,
     /// Balance
-		balance: Field,
+    balance: Field,
     /// Was it spent
     spent: bool,
 }
