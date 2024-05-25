@@ -5,7 +5,7 @@ import { cpus } from 'os';
 import { Level } from 'level';
 
 export interface NodeStorage {
-  get(key: string): Promise<Fr>;
+  get(key: string): Promise<Fr | undefined>;
   set(key: string, value: Fr): Promise<void>;
   entries(): AsyncIterableIterator<[string, Fr]>;
 }
@@ -17,7 +17,7 @@ export class MapNodeStorage implements NodeStorage {
     this.storage = new Map();
   }
 
-  async get(key: string) {
+  async get(key: string): Promise<Fr | undefined> {
     return this.storage.get(key);
   }
 
@@ -39,8 +39,12 @@ export class LevelNodeStorage implements NodeStorage {
     this.storage = new Level(name, { valueEncoding: 'buffer' });
   }
 
-  async get(key: string) {
-    return Fr.fromBuffer(await this.storage.get(key));
+  async get(key: string): Promise<Fr | undefined> {
+    try {
+      return Fr.fromBuffer(await this.storage.get(key));
+    } catch (e) {
+      return undefined;
+    }
   }
 
   async set(key: string, value: Fr) {
@@ -90,7 +94,7 @@ export class MerkleTree {
   }
 
   async getLeaf(index: number): Promise<Fr> {
-    return (await this.storage.get(MerkleTree.indexToKey(0, index))) || this.zeros[this.levels];
+    return await this.storage.get(MerkleTree.indexToKey(0, index)) || this.zeros[this.levels];
   }
 
   static indexToKey(level: number, index: number): string {
