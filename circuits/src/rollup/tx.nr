@@ -88,7 +88,7 @@ impl<N> TxEx<N> {
 
         let new_account_receiver = Account {
             key: tx.receiver_key, 
-            balance: assets.account_receiver.balance + tx.amount
+            balance: assets.account_receiver.balance + tx.amount,
             nonce: assets.account_receiver.nonce
         };
 
