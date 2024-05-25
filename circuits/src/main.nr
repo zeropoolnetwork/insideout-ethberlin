@@ -9,72 +9,68 @@ use crate::common::pub_encoding;
 // use crate::mining::MiningReq;
 
 struct RollupState {
-    accounts: Field,
-    accounts_i: u32,
-    storage: Field,
-    storage_i: u32,
+    /// Root hash of the Merkle tree storing accounts
+    acc_root: Field,
+    /// Root hash of the Merkle tree storing file info
+    data_root: Field,
+}
+
+impl Eq for RollupState {
+    fn eq(self, other: Self) -> bool {
+        (self.acc_root == other.acc_root) & (self.data_root == other.data_root)
+    }
 }
 
 impl RollupState {
     fn init(d: u64) -> RollupState {
         RollupState {
-            accounts: d as Field,
-            accounts_i: 1,
-            storage: d as Field,
-            storage_i: 1,
+            acc_root: d as Field,
+            data_root: d as Field,
         }
     }
 
     fn hash(self) -> Field {
         poseidon2([
-            self.accounts,
-            self.accounts_i as Field,
-            self.storage,
-            self.storage_i as Field,
+            self.acc_root,
+            self.data_root,
         ])
     }
 }
 
 global OutN = 1 << 4;
-global Depth = 20;
+global StateDepth = 20;
+global FileDepth = 10;
 global BatchSize = 1 << 4;
 
 fn main(
     public_params_hash: pub [u8; pub_encoding::BYTES_IN_KECCAK256],
-    old: Field,
-    new: Field,
-    /// Time. Used to expire files that run out of money
-    time_now: Field,
-    /// Contract's balance change (due to external deposits, withdrawals)
-    delta: Field,
-    /// Seed from Random Oracle, used for mining
-    r: Field,
-    /// State before transaction
-    old_state: RollupState//,
-    // /// Mining requests, processed on old_state
-    // mining_reqs: [MiningReq; BatchSize],
-    // /// Transactions moving balances and creating files
-    // tx_reqs: [Tx<Depth,OutN>; BatchSize],
+    before: RollupState,
+    after: RollupState,
+    tx_block: rollup::tx::TxBlock<BatchSize, StateDepth>,
+    file_block: rollup::file::TxBlock<BatchSize, StateDepth>,
+    mining_block: rollup::mining::TxBlock<BatchSize, StateDepth, FileDepth>,
 ) {
+    // Contract's public view is matched
     assert_eq(
         public_params_hash,
         pub_encoding::keccak256field([
-            old,
-            new,
-            time_now,
-            delta,
-            r
+            // These two hashes are the public view of the contract
+            before.hash(),
+            after.hash(),
         ])
     );
 
-    // The plan for `main` is:
-    // 
-    // 1. Validate the mining requests,
-    // 2. Deposit tokens for miners,
-    // 3. Perform transactions,
-    // 4. Assert that the resulting state hashes to `new`
+    let acc_root = before.acc_root;
+    let data_root = before.data_root;
 
-    assert(1 != 2);
+
+    assert_eq(
+        after,
+        RollupState {
+            acc_root: acc_root,
+            data_root: data_root,
+        }
+    );
 }
 
 // #[test]

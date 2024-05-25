@@ -1,7 +1,7 @@
 use dep::std::hash;
 
 global BYTES_IN_FIELD = 32;
-global N_HASHED_PUBS = 5;
+global N_HASHED_PUBS = 2;
 global BYTES_IN_KECCAK256 = 32;
 
 /// Serialize given Field elements and compute Keccak hash of them
