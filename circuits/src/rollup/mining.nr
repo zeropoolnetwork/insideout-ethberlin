@@ -66,33 +66,35 @@ impl Tx {
 impl<N,K> TxEx<N,K> {
     pub fn apply<O>(self, acc_root:Field, data_root:Field, random_oracle:RandomOracle<O>) -> Field {
         let TxEx{tx, assets} = self;
+        let is_blank = assets.signature.a == 0;
+
         // check signature
         let txhash = tx.hash();
-        assert(assets.signature.verify(txhash));
+        assert(is_blank | (assets.signature.verify(txhash)));
 
         // check overflow
-        assert(!(assets.account_sender.balance + MINING_REWARD).lt(assets.account_sender.balance));
+        assert(is_blank | (!(assets.account_sender.balance + MINING_REWARD).lt(assets.account_sender.balance)));
 
         // sender should be correct
-        assert(assets.account_sender.key == assets.signature.a);
+        assert(is_blank | (assets.account_sender.key == assets.signature.a));
 
         // check merkle path for sender
-        assert(tx.sender_index == from_le_bits(assets.proof_sender.index_bits));
+        assert(is_blank | (tx.sender_index == from_le_bits(assets.proof_sender.index_bits)));
 
         // check nonce
-        assert(assets.account_sender.nonce == tx.nonce);
+        assert(is_blank | (assets.account_sender.nonce == tx.nonce));
 
         // check oracle value
-        assert(random_oracle.get_nonce(assets.random_oracle_value) == tx.random_oracle_nonce);
+        assert(is_blank | (random_oracle.get_nonce(assets.random_oracle_value) == tx.random_oracle_nonce));
 
         // check oracle nonce
-        assert(assets.account_sender.random_oracle_nonce.lt(tx.random_oracle_nonce));
+        assert(is_blank | (assets.account_sender.random_oracle_nonce.lt(tx.random_oracle_nonce)));
 
         // check merkle proof for file
-        assert(assets.proof_file.root(assets.file.hash()) == data_root);
+        assert(is_blank | (assets.proof_file.root(assets.file.hash()) == data_root));
         
         // check merkle proof for data in file
-        assert(assets.proof_data_in_file.root(assets.data_in_file) == assets.file.data);
+        assert(is_blank | (assets.proof_data_in_file.root(assets.data_in_file) == assets.file.data));
         
         ///// MINING BEGIN /////
         {
@@ -100,10 +102,10 @@ impl<N,K> TxEx<N,K> {
             let bruteforce_hash = poseidon2([assets.signature.a, assets.random_oracle_value, tx.mining_nonce]);
             let index_hash = poseidon2([bruteforce_hash]);
 
-            assert(index == trim(index_hash, N+K as u32));
+            assert(is_blank | (index == trim(index_hash, N+K as u32)));
 
             let mining_hash = poseidon2([bruteforce_hash, assets.data_in_file]);
-            assert(mining_hash.lt(REV_DIFFICULTY));
+            assert(is_blank | (mining_hash.lt(REV_DIFFICULTY)));
         }
         ///// MINING END /////
 
@@ -117,7 +119,11 @@ impl<N,K> TxEx<N,K> {
 
         let new_acc_root = assets.proof_sender.update(acc_root, assets.account_sender.hash(), new_account_sender.hash());
 
-        new_acc_root
+        if is_blank {
+            new_acc_root
+        } else {
+            acc_root
+        }
     }
 }
 

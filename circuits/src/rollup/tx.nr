@@ -51,30 +51,31 @@ impl Tx {
 impl<N> TxEx<N> {
     pub fn apply(self, root: Field) -> Field {
         let TxEx {tx, assets} = self;
+        let is_blank = assets.signature.a == 0;
 
         // check signatures
         let txhash = tx.hash();
-        assert(assets.signature.verify(txhash));
+        assert(is_blank | (assets.signature.verify(txhash)));
 
         // check overflows
-        assert(!assets.account_sender.balance.lt(tx.amount));
-        assert(!(assets.account_receiver.balance + tx.amount).lt(assets.account_receiver.balance));
+        assert(is_blank | (!assets.account_sender.balance.lt(tx.amount)));
+        assert(is_blank | (!(assets.account_receiver.balance + tx.amount).lt(assets.account_receiver.balance)));
 
         // receiver should be correct or zero. Then we will initialize it with account_receiver
-        assert((assets.account_receiver.key == tx.receiver_key) | (assets.account_receiver.key == 0));
+        assert(is_blank | ((assets.account_receiver.key == tx.receiver_key) | (assets.account_receiver.key == 0)));
 
         // sender should be correct
-        assert(assets.account_sender.key == assets.signature.a);
+        assert(is_blank | (assets.account_sender.key == assets.signature.a));
 
         // check merkle paths
-        assert(tx.sender_index == from_le_bits(assets.proof_sender.index_bits));
-        assert(tx.receiver_index == from_le_bits(assets.proof_receiver.index_bits));
+        assert(is_blank | (tx.sender_index == from_le_bits(assets.proof_sender.index_bits)));
+        assert(is_blank | (tx.receiver_index == from_le_bits(assets.proof_receiver.index_bits)));
         
         // prohibit self-sending
-        assert(tx.sender_index != tx.receiver_index);
+        assert(is_blank | (tx.sender_index != tx.receiver_index));
 
         // check nonce
-        assert(assets.account_sender.nonce == tx.nonce);
+        assert(is_blank | (assets.account_sender.nonce == tx.nonce));
 
         // deinitialize sender if balance is zero
         let new_account_sender = {
@@ -103,7 +104,11 @@ impl<N> TxEx<N> {
         // update receiver
         cur = assets.proof_receiver.update(assets.account_receiver.hash(), new_account_receiver.hash(), cur);
 
-        cur
+        if is_blank {
+            root
+        } else {
+            cur
+        }
     }
 }
 

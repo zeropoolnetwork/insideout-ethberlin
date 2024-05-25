@@ -62,24 +62,25 @@ impl Tx {
 impl<N> TxEx<N> {
     pub fn apply(self, acc_root:Field, data_root:Field, now:Field) -> (Field, Field) {
         let TxEx{tx, assets} = self;
-
+        let is_blank = assets.signature.a == 0;
+        
         // check signature
         let txhash = tx.hash();
-        assert(assets.signature.verify(txhash));
+        assert(is_blank | (assets.signature.verify(txhash)));
 
         let fee = PRICE * tx.time_interval;
 
         // check overflow
-        assert(!assets.account_sender.balance.lt(fee));
+        assert(is_blank | (!assets.account_sender.balance.lt(fee)));
 
         // sender should be correct
-        assert(assets.account_sender.key == assets.signature.a);
+        assert(is_blank | (assets.account_sender.key == assets.signature.a));
 
         // check merkle path for sender
-        assert(tx.sender_index == from_le_bits(assets.proof_sender.index_bits));
+        assert(is_blank | (tx.sender_index == from_le_bits(assets.proof_sender.index_bits)));
 
         // check nonce
-        assert(assets.account_sender.nonce == tx.nonce);
+        assert(is_blank | (assets.account_sender.nonce == tx.nonce));
 
         // deinitialize sender if balance is zero
         let new_account_sender = {
@@ -97,10 +98,10 @@ impl<N> TxEx<N> {
         let new_acc_root = assets.proof_sender.update(assets.account_sender.hash(), new_account_sender.hash(), acc_root);
 
         // check access to the file
-        assert(assets.file.is_writeable(now, assets.account_sender.key));
+        assert(is_blank | (assets.file.is_writeable(now, assets.account_sender.key)));
 
         // check merkle path for file
-        assert(tx.data_index == from_le_bits(assets.proof_file.index_bits));
+        assert(is_blank | (tx.data_index == from_le_bits(assets.proof_file.index_bits)));
 
         // update file
         let new_file = {
@@ -124,8 +125,11 @@ impl<N> TxEx<N> {
         };
 
         let new_data_root = assets.proof_file.update(assets.file.hash(), new_file.hash(), data_root);
-
-        (new_acc_root, new_data_root)
+        if is_blank {
+            (acc_root, data_root)
+        } else {   
+            (new_acc_root, new_data_root)
+        }
     }
 }
 
