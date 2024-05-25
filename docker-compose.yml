@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  storage-node:
+    build:
+      context: .
+      dockerfile: storage-node/Dockerfile
+    ports:
+      - "3001:3001"
+    depends_on:
+      - rollup-node
+    networks:
+      - app-network
+
+  rollup-node:
+    build:
+      context: .
+      dockerfile: rollup-node/Dockerfile
+    ports:
+      - "3000:3000"
+    networks:
+      - app-network
+
+  client-app:
+    build:
+      context: .
+      dockerfile: client-app/Dockerfile
+    ports:
+      - "80:80"
+    networks:
+      - app-network
+
+networks:
+  app-network:
+    driver: bridge

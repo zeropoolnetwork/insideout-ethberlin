@@ -1,29 +1,27 @@
 import * as fs from 'fs';
 import * as path from 'path';
 import * as crypto from 'crypto';
+import { Level } from 'level';
 
 export interface FileMetadata {
   ownerId: string;
   expirationDate: Date;
+  size: number;
 }
 
 export class FileStorage {
   private clusterSize: number;
   private fileDirectory: string;
-  private reservedFiles: Map<string, Date>;
+  // private reservedFiles: Level<string, Date>;
 
   constructor(clusterSize: number = 1024 * 128, fileDirectory: string = './files') {
     this.clusterSize = clusterSize;
     this.fileDirectory = fileDirectory;
-    this.reservedFiles = new Map();
+    // this.reservedFiles = new Level('reserved-files', { valueEncoding: 'json' });
 
     if (!fs.existsSync(this.fileDirectory)) {
       fs.mkdirSync(this.fileDirectory, { recursive: true });
     }
-  }
-
-  private generateFileName(): string {
-    return crypto.randomBytes(16).toString('hex');
   }
 
   private getFilePath(fileName: string): string {
@@ -31,38 +29,53 @@ export class FileStorage {
   }
 
   // TODO: Only supports files that fit into a single cluster for now.
-  public reserve(metadata: FileMetadata): string {
-    let fileName: string;
+  async reserve(fileName: string, metadata: FileMetadata): Promise<string> {
     let filePath: string;
 
-    // Check for expired files to reuse
-    for (const [reservedFileName, reservedFileDate] of this.reservedFiles) {
-      if (reservedFileDate < new Date()) {
-        fileName = reservedFileName;
-        filePath = this.getFilePath(fileName);
-        fs.truncateSync(filePath, 0);
-        this.reservedFiles.delete(reservedFileName);
-        this.reservedFiles.set(fileName, metadata.expirationDate);
-        return fileName;
-      }
-    }
+    // // Check for expired files to reuse
+    // for await (const [reservedFileName, reservedFileDate] of this.reservedFiles.iterator()) {
+    //   if (reservedFileDate < new Date()) {
+    //     fileName = reservedFileName;
+    //     filePath = this.getFilePath(fileName);
+    //     fs.truncateSync(filePath, 0);
+    //     await this.reservedFiles.del(reservedFileName);
+    //     await this.reservedFiles.put(fileName, metadata.expirationDate);
+    //     return fileName;
+    //   }
+    // }
 
     // Create a new file if no expired files are found
-    fileName = this.generateFileName();
     filePath = this.getFilePath(fileName);
     const buffer = Buffer.alloc(this.clusterSize);
     fs.writeFileSync(filePath, buffer);
-    this.reservedFiles.set(fileName, metadata.expirationDate);
+    fs.writeFileSync(`${filePath}.meta`, JSON.stringify(metadata));
+    // await this.reservedFiles.put(fileName, metadata.expirationDate);
+
     return fileName;
   }
 
-  public write(fileName: string, buffer: Buffer): void {
+  async write(fileName: string, buffer: Buffer) {
     const filePath = this.getFilePath(fileName);
 
-    if (!this.reservedFiles.has(fileName)) {
-      throw new Error('File not reserved or expired.');
+    if (buffer.length > this.clusterSize) {
+      throw new Error('File size exceeds cluster size');
+    }
+
+    if (!fs.existsSync(filePath)) {
+      throw new Error('File not reserved');
     }
 
     fs.writeFileSync(filePath, buffer);
+  }
+
+  async read(fileName: string): Promise<Buffer | undefined> {
+    const filePath = this.getFilePath(fileName);
+
+    if (!fs.existsSync(filePath)) {
+      return undefined;
+    }
+
+    const data = fs.readFileSync(filePath);
+    return data;
   }
 }

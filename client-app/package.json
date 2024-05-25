@@ -12,6 +12,7 @@
 		"format": "prettier --write ."
 	},
 	"dependencies": {
+		"ethers": "^6.12.1",
 		"zpst-common": "workspace:../common"
 	},
 	"devDependencies": {
