@@ -6,6 +6,7 @@ import { Server as SocketIOServer } from 'socket.io';
 import { Level } from 'level';
 import { Fr } from '@aztec/bb.js';
 import cors from 'cors';
+import { id } from 'ethers';
 
 program
   .option('-p, --port <port>', 'Port to listen on', '3000');
@@ -18,7 +19,7 @@ const server = new http.Server(app);
 const io = new SocketIOServer(server);
 
 const EXPIRATION: number = 1000 * 60 * 60 * 24 * 7; // 1 week
-const UPLOAD_COST: number = 1;
+const RESERVATION_COST: number = 1;
 
 interface AccountState {
   balance: number;
@@ -77,27 +78,21 @@ app.post('/files', async (req: Request, res: Response) => {
     return;
   }
 
-  const fileName = Fr.random().toString(); // FIXME: use hash
-  const data = Buffer.from(req.body.data, 'base64');
-
-  const r: { status: string } = await new Promise((resolve, reject) => {
-    io.emit('uploadFile', data, fileName, { ...metadata, expirationDate }, (r: { status: string }) => {
-      resolve(r);
-    });
-  });
-
-  console.log('Result:', r);
-
-  if (r.status !== 'ok') {
-    res.status(500).send({ error: 'Error uploading file' });
+  if (account.balance < RESERVATION_COST) {
+    res.status(400).send({ error: 'Insufficient balance' });
     return;
   }
 
+  const fileName = Fr.random().toString(); // FIXME: use hash
+  const data = Buffer.from(req.body.data, 'base64');
+
+  io.emit('uploadFile', data, fileName, { ...metadata, expirationDate });
+
   account.files.push(fileName);
-  account.balance -= UPLOAD_COST;
+  account.balance -= RESERVATION_COST;
   await state.accounts.put(metadata.ownerId as string, account);
 
-  res.send();
+  res.send({ fileName });
 });
 
 // FIXME: mock
@@ -131,6 +126,10 @@ app.get('/accounts/:id', async (req: Request, res: Response) => {
   res.send(account);
 });
 
-server.listen(options.port || process.env.PORT, function () {
+app.get('/status', async (req: Request, res: Response) => {
+  res.send({ status: 'OK' });
+});
+
+server.listen(process.env.PORT || options.port, function () {
   console.log(`Listening on ${options.port}`);
 });

@@ -6,6 +6,7 @@ import { Level } from 'level';
 export interface FileMetadata {
   ownerId: string;
   expirationDate: Date;
+  // Size in bytes. Might be needed if we want to restore the data from Fr[]. For now, files are stored as is.
   size: number;
 }
 

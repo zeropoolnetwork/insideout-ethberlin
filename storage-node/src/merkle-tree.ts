@@ -69,4 +69,12 @@ export class MerkleTree {
 
     return proof;
   }
+
+  getLeaf(index: number): Fr {
+    if (index >= 2 ** this.height) {
+      throw new Error('Invalid index');
+    }
+
+    return this.tree[this.tree.length];
+  }
 }

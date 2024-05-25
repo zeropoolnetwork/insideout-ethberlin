@@ -38,11 +38,11 @@ console.log('Connecting to master node:', options.master || process.env.MASTER);
 const socket = io(options.master || process.env.MASTER, { autoConnect: true });
 
 socket.on('connect', () => {
-  console.log('Connected!');
+  console.log('Connected to master node');
 });
 
 socket.on('disconnect', () => {
-  console.log('Disconnected!');
+  console.log('Disconnected from master node');
 });
 
 socket.on('error', (err) => {
@@ -57,15 +57,13 @@ socket.on('error', (err) => {
 //   callback(data);
 // });
 
-socket.on('uploadFile', async (data: Buffer, name: string, metadata: FileMetadata, callback: (res: { status: string }) => void) => {
+socket.on('uploadFile', async (data: Buffer, name: string, metadata: FileMetadata) => {
   console.log('Saving file:', name, metadata);
   try {
     await storage.reserve(name, metadata);
     await storage.write(name, data);
-    callback({ status: 'ok' });
   } catch (err) {
     console.error('Error uploading file:', err);
-    callback({ status: 'error' });
     return;
   }
 });
@@ -91,6 +89,10 @@ app.get('/files/:id', async (req: Request, res: Response) => {
   res.send(data);
 });
 
-app.listen(options.port || process.env.PORT, () => {
+app.get('/status', async (req: Request, res: Response) => {
+  res.send({ status: 'OK' });
+});
+
+app.listen(process.env.PORT || options.port, () => {
   console.log('Listening on port', options.port);
 });

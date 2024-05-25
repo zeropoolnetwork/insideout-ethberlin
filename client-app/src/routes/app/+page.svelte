@@ -1,7 +1,14 @@
 <script lang="ts">
 	import { goto } from '$app/navigation';
 	import { initWallet, getAddress } from '$lib';
-	import { uploadFile, mint, getAccount, ROLLUP_API_URL, NODE_API_URL } from '$lib/api';
+	import {
+		uploadFile,
+		mint,
+		getAccount,
+		checkStatus,
+		ROLLUP_API_URL,
+		NODE_API_URL
+	} from '$lib/api';
 
 	let files: { name: string; url: string }[] = [];
 	let balance = 0;
@@ -13,10 +20,9 @@
 			// @ts-ignore
 			let files = Array.from(input.files);
 			await uploadFile(files[0] as File, getAddress());
+			await update();
 		};
 		input.click();
-
-		await load();
 	};
 
 	const handleMint = async () => {
@@ -27,29 +33,56 @@
 	async function load() {
 		try {
 			await initWallet();
-			let account = await getAccount(getAddress());
-			files = account.files.map((name: string) => ({
-				name,
-				url: `${NODE_API_URL}/files/${name}`
-			}));
-			balance = account.balance;
+			await update();
 		} catch (err) {
 			console.error(err);
 			return goto('/init');
 		}
 	}
 
+	async function update() {
+		const account = await getAccount(getAddress());
+		files = account.files.map((name: string) => ({
+			name,
+			url: `${NODE_API_URL}/files/${name}`
+		}));
+		balance = account.balance;
+	}
+
+	let nodeStatus = true;
+	let rollupStatus = true;
+
+	setInterval(async () => {
+		let status = await checkStatus();
+		nodeStatus = status.node;
+		rollupStatus = status.rollup;
+	}, 1000);
+
 	let promise = load();
 </script>
 
-<div class="border rounded-lg p-4 w-1/3">
+<div class="border rounded-lg p-4 w-full sm:w-2/3 md:w-1/2 lg:w-1/3">
 	{#await promise}
 		<p>Loading...</p>
 	{:then}
 		<div class="mb-4">
 			<div class="flex justify-between">
-				<p class="text-sm text-gray-300">Rollup: {ROLLUP_API_URL}</p>
-				<p class="text-sm text-gray-300">Node: {NODE_API_URL}</p>
+				<p class="text-sm text-gray-300">
+					Rollup: {ROLLUP_API_URL}
+					{#if rollupStatus}
+						<span class="text-green-500">✅</span>
+					{:else}
+						<span class="text-red-500">❌</span>
+					{/if}
+				</p>
+				<p class="text-sm text-gray-300">
+					Node: {NODE_API_URL}
+					{#if nodeStatus}
+						<span class="text-green">✅</span>
+					{:else}
+						<span class="text-red"> ❌ </span>
+					{/if}
+				</p>
 			</div>
 		</div>
 		<div class="mb-4">
@@ -79,7 +112,7 @@
 			{#each files as file}
 				<div class="flex items-center mb-2">
 					<img src={file.url} alt={file.name} class="w-12 h-12 mr-2 rounded" />
-					<a href={file.url} target="_blank" class="text-blue-500">{file.name}</a>
+					<a href={file.url} target="_blank" class="text-blue-500 overflow-hidden">{file.name}</a>
 				</div>
 			{/each}
 		</div>
