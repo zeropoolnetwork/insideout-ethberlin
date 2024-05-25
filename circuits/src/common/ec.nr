@@ -65,6 +65,21 @@ unconstrained fn subgroup_decompress_one_eighth(x: Field) -> Point {
     bjj.curve.mul(one_eighth, res)
 }
 
+// Taken from the following data:
+// pk = Point { x: Fr(0x197fdaae6930469533912e344e07e72a3648537c7c84872979216b0feecc66c0), y: Fr(0x2f6466dc2a09a630d8810db1ce67943d27829d9cc8c53ba7b2b964bf9da849cf) }
+// sig = Signature { r_b8: Point { x: Fr(0x213bce1651b35d118a107deb7ad941fd84acb4427fb97f4525574842652106cb), y: Fr(0x13da34bcaf6f215440039e36dbfdc22fe8870aa13519caa22f4c40e637cc4d57) }, s: 2331457278607009735600634377034838521407040039511862771249660037197147222050 }
+// msg = 123456789012345678901234567890
+//
+// Taken from https://github.com/arnaucube/babyjubjub-rs/blob/367ee99d8d15313795aa6e75adbe874c404c7235/src/lib.rs#L565
+#[test]
+fn test_eddsa_verify() {
+    let s = SignaturePacked {
+            a: 0x197fdaae6930469533912e344e07e72a3648537c7c84872979216b0feecc66c0,
+            s: 2331457278607009735600634377034838521407040039511862771249660037197147222050,
+            r8: 0x213bce1651b35d118a107deb7ad941fd84acb4427fb97f4525574842652106cb,
+    };
+    assert(s.verify(123456789012345678901234567890));
+}
 
 #[test]
 fn test_subgroup_decompress_valid_points() {
