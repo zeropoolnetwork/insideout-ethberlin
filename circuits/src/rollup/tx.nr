@@ -112,11 +112,11 @@ impl<N> TxEx<N> {
     }
 }
 
-struct TxBlock<M,N> {
+struct Block<M,N> {
     txs: [TxEx<N>; M]
 }
 
-impl<M,N> TxBlock<M,N> {
+impl<M,N> Block<M,N> {
     fn apply(self, root:Field) -> Field {
         let mut cur = root;
         for i in 0..M {

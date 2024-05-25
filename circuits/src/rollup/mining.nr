@@ -127,11 +127,11 @@ impl<N,K> TxEx<N,K> {
     }
 }
 
-struct TxBlock<M,N,K> {
+struct Block<M,N,K> {
     txs: [TxEx<N,K>; M]
 }
 
-impl<M,N,K> TxBlock<M,N,K> {
+impl<M,N,K> Block<M,N,K> {
     fn apply<O>(self, acc_root:Field, data_root:Field, random_oracle:RandomOracle<O>) -> Field {
         let mut cur = acc_root;
         for i in 0..M {
