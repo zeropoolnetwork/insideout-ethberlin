@@ -1,17 +1,14 @@
-use dep::std::hash;
-use crate::common::{IdenKey, Hash, poseidon2};
+use crate::common::poseidon2;
 
 struct Account {
-    /// Signing PK hash
-    owner: IdenKey,
+    /// x coordinate of the owner account public key
+    owner: Field,
     /// Balance
     balance: Field,
-    /// Was it spent
-    spent: bool,
 }
 
 impl Account {
-    fn hash(self) -> Hash {
-        poseidon2([self.owner, self.balance, self.spent as Field])
+    fn hash(self) -> Field {
+        poseidon2([self.owner, self.balance])
     }
 }

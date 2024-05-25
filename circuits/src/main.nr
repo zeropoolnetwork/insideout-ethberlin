@@ -1,28 +1,28 @@
 mod account;
 mod file;
 mod common;
-mod tx;
-mod mining;
+// mod tx;
+// mod mining;
 
-use crate::common::{MerkleRoot, Hash, poseidon2};
-use crate::tx::Tx;
-use crate::mining::MiningReq;
+use crate::common::poseidon2;
+// use crate::tx::Tx;
+// use crate::mining::MiningReq;
 
 struct RollupState {
-    accounts: MerkleRoot,
-    storage: MerkleRoot,
+    accounts: Field,
+    storage: Field,
 }
 
 impl RollupState {
     fn init() -> RollupState {
         RollupState {
-            accounts: MerkleRoot::new(0),
-            storage: MerkleRoot::new(0),
+            accounts: 0,
+            storage: 0,
         }
     }
 
-    fn hash(self) -> Hash {
-        poseidon2([self.accounts.hash, self.storage.hash])
+    fn hash(self) -> Field {
+        poseidon2([self.accounts, self.storage])
     }
 }
 
@@ -31,12 +31,12 @@ global Depth = 20;
 global BatchSize = 16;
 
 fn main(
-    old: pub Hash,
-    new: pub Hash,
+    old: pub Field,
+    new: pub Field,
     time_now: pub Field,
-    old_state: RollupState,
-    mining_reqs: [MiningReq; BatchSize],
-    tx_reqs: [Tx<Depth,OutN>; BatchSize],
+    old_state: RollupState//,
+    // mining_reqs: [MiningReq; BatchSize],
+    // tx_reqs: [Tx<Depth,OutN>; BatchSize],
 ) {
     assert(1 != 2);
 }
