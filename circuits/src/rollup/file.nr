@@ -84,20 +84,20 @@ impl<N> TxEx<N> {
         // deinitialize sender if balance is zero
         let new_account_sender = {
             let balance = assets.account_sender.balance - fee;
-            let (key, nonce) = if balance == 0 {
-                (0,0)
+            let (key, nonce, random_oracle_nonce) = if balance == 0 {
+                (0,0,0)
             } else {
-                (assets.account_sender.key, tx.nonce + 1)
+                (assets.account_sender.key, tx.nonce + 1, assets.account_sender.random_oracle_nonce)
             };
 
-            Account {key, balance, nonce}
+            Account {key, balance, nonce, random_oracle_nonce}
         };
 
         // update sender
         let new_acc_root = assets.proof_sender.update(assets.account_sender.hash(), new_account_sender.hash(), acc_root);
 
         // check access to the file
-        assets.file.is_writeable(now, assets.account_sender.key);
+        assert(assets.file.is_writeable(now, assets.account_sender.key));
 
         // check merkle path for file
         assert(tx.data_index == from_le_bits(assets.proof_file.index_bits));
@@ -139,7 +139,9 @@ impl<M,N> TxBlock<M,N> {
         let mut cur_data = data_root;
 
         for i in 0..M {
-            (cur_acc, cur_data) = self.txs[i].apply(cur_acc, cur_data, now);
+            let (acc, data) = self.txs[i].apply(cur_acc, cur_data, now);
+            cur_acc = acc;
+            cur_data = data;
         }
         
         (cur_acc, cur_data)

@@ -79,7 +79,12 @@ fn main(
 
 // #[test]
 // fn test_main() {
-//     main(1, 2);
+//     let a: Field = 1000000;
+//     let bits = a.to_le_bits(10);
+//     for i in 0..bits.len() {
+//         let b = bits[i];
+//         println(f"{b}");
+//     }
 //     // Uncomment to make test fail
 //     // main(1, 1);
 // }

@@ -8,12 +8,14 @@ struct Account {
     /// Balance
     balance: Field,
     // Nonce
-    nonce: Field
+    nonce: Field,
+    // Mining nonce
+    random_oracle_nonce: Field
 }
 
 impl Account {
     fn hash(self) -> Field {
-        poseidon2([self.key, self.balance, self.nonce])
+        poseidon2([self.key, self.balance, self.nonce, self.random_oracle_nonce])
     }
 }
 
@@ -77,19 +79,20 @@ impl<N> TxEx<N> {
         // deinitialize sender if balance is zero
         let new_account_sender = {
             let balance = assets.account_sender.balance - tx.amount;
-            let (key, nonce) = if balance == 0 {
-                (0,0)
+            let (key, nonce, random_oracle_nonce) = if balance == 0 {
+                (0,0,0)
             } else {
-                (assets.account_sender.key, tx.nonce + 1)
+                (assets.account_sender.key, tx.nonce + 1,assets.account_sender.random_oracle_nonce)
             };
 
-            Account {key, balance, nonce}
+            Account {key, balance, nonce, random_oracle_nonce}
         };
 
         let new_account_receiver = Account {
             key: tx.receiver_key, 
             balance: assets.account_receiver.balance + tx.amount,
-            nonce: assets.account_receiver.nonce
+            nonce: assets.account_receiver.nonce,
+            random_oracle_nonce: assets.account_receiver.random_oracle_nonce
         };
 
         let mut cur = root;
