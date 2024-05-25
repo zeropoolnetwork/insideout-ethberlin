@@ -11,18 +11,18 @@ class RandomOracle:
         self.offset = random.randint(0, MODULUS - 1)
         self.data = [random.randint(0, MODULUS - 1) for _ in range(RANDOM_ORACLE_SIZE)]
 
-class RollupInput:
+class RollupPubInput:
     def __init__(self):
         self.old_root = random.randint(0, MODULUS - 1)
         self.new_root = random.randint(0, MODULUS - 1)
-        self.clock = random.randint(0, MODULUS - 1)
+        self.now = random.randint(0, MODULUS - 1)
         self.oracle = RandomOracle()
 
 def serialize_rollup_input(rollup_input):
     payload = [0] * HASH_PAYLOAD_SIZE
     payload[0] = rollup_input.old_root
     payload[1] = rollup_input.new_root
-    payload[2] = rollup_input.clock
+    payload[2] = rollup_input.now
     payload[3] = rollup_input.oracle.offset
     for i in range(RANDOM_ORACLE_SIZE):
         payload[4 + i] = rollup_input.oracle.data[i]
@@ -38,7 +38,7 @@ def hash_payload(payload):
     return int.from_bytes(hash_result, 'big') % MODULUS
 
 
-rollup_input = RollupInput()
+rollup_input = RollupPubInput()
 
 
 payload = serialize_rollup_input(rollup_input)
@@ -49,10 +49,10 @@ noir_code = f"""
 
 #[test]
 fn test_rollup_input_hash() {{
-    let rollup_input = RollupInput {{
+    let rollup_input = RollupPubInput {{
         old_root: {rollup_input.old_root},
         new_root: {rollup_input.new_root},
-        clock: {rollup_input.clock},
+        now: {rollup_input.now},
         oracle: RandomOracle {{
             offset: {rollup_input.oracle.offset},
             data: {rollup_input.oracle.data}
