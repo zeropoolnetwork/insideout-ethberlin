@@ -4,7 +4,35 @@ import { Barretenberg, Fr } from '@aztec/bb.js';
 import { cpus } from 'os';
 import { Level } from 'level';
 
-class TreeNodeStorage {
+export interface NodeStorage {
+  get(key: string): Promise<Fr>;
+  set(key: string, value: Fr): Promise<void>;
+  entries(): AsyncIterableIterator<[string, Fr]>;
+}
+
+export class MapNodeStorage implements NodeStorage {
+  storage: Map<string, Fr>;
+
+  constructor() {
+    this.storage = new Map();
+  }
+
+  async get(key: string) {
+    return this.storage.get(key);
+  }
+
+  async set(key: string, value: Fr) {
+    this.storage.set(key, value);
+  }
+
+  async* entries(): AsyncIterableIterator<[string, Fr]> {
+    for (let [key, value] of this.storage.entries()) {
+      yield [key, value];
+    }
+  }
+}
+
+export class LevelNodeStorage implements NodeStorage {
   storage: Level<string, Uint8Array>;
 
   constructor(name: string) {
@@ -27,19 +55,15 @@ class TreeNodeStorage {
 }
 
 export class MerkleTree {
-  readonly zeroValue = Fr.fromString(
-    // '18d85f3de6dcd78b6ffbf5d8374433a5528d8e3bf2100df0b7bb43a4c59ebd63',
-    '0' // FIXME
-  );
   levels: number;
-  storage: TreeNodeStorage;
+  storage: NodeStorage;
   zeros: Fr[];
   totalLeaves: number;
   bb: Barretenberg = {} as Barretenberg;
 
-  constructor(levels: number) {
+  constructor(levels: number, storage: NodeStorage) {
     this.levels = levels;
-    this.storage = new TreeNodeStorage('merkle-tree');
+    this.storage = storage;
     this.zeros = [];
     this.totalLeaves = 0;
   }
@@ -47,7 +71,8 @@ export class MerkleTree {
   async initialize(defaultLeaves: Fr[]) {
     this.bb = await Barretenberg.new({ threads: cpus().length });
     // build zeros depends on tree levels
-    let currentZero = this.zeroValue;
+    const zero = Fr.fromString('0');
+    let currentZero = await this.hash(zero, zero);
     this.zeros.push(currentZero);
 
     for (let i = 0; i < this.levels; i++) {
