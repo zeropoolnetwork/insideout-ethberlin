@@ -117,7 +117,6 @@ fn main(
     );
 }
 
-
 #[test]
 fn test_rollup_input_hash() {
     let rollup_input = RollupPubInput {
