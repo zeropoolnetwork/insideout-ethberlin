@@ -128,3 +128,20 @@ impl<N> TxEx<N> {
         (new_acc_root, new_data_root)
     }
 }
+
+struct TxBlock<M,N> {
+    txs: [TxEx<N>; M]
+}
+
+impl<M,N> TxBlock<M,N> {
+    fn apply(self, acc_root:Field, data_root:Field, now:Field) -> (Field, Field) {
+        let mut cur_acc = acc_root;
+        let mut cur_data = data_root;
+
+        for i in 0..M {
+            (cur_acc, cur_data) = self.txs[i].apply(cur_acc, cur_data, now);
+        }
+        
+        (cur_acc, cur_data)
+    }
+}
