@@ -13,6 +13,7 @@ impl Eq for MerkleRoot {
 
 fn merkle_root_from_path<N>(leaf: Hash, path: [u1; N], proof: [Hash; N]) -> Hash {
     let mut acc = leaf;
+    // I hope the decreasing .. syntax works this way in Noir, the docs are unclear about it.
     for i in (proof.len()-1) .. 0 {
         acc = if path[i] == 1 {
             poseidon2([acc, proof[i]])
