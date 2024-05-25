@@ -1,12 +1,12 @@
 use dep::std::hash;
 
 global BYTES_IN_FIELD = 32;
-global HASHED_PUBS = 5;
-global KECCAK256_WIDTH = 32;
+global N_HASHED_PUBS = 5;
+global BYTES_IN_KECCAK256 = 32;
 
 /// Serialize given Field elements and compute Keccak hash of them
-pub fn keccak256field(input: [Field; HASHED_PUBS]) -> [u8; KECCAK256_WIDTH] {
-    let payload: [u8; BYTES_IN_FIELD * HASHED_PUBS] =
+pub fn keccak256field(input: [Field; N_HASHED_PUBS]) -> [u8; BYTES_IN_KECCAK256] {
+    let payload: [u8; BYTES_IN_FIELD * N_HASHED_PUBS] =
         input.fold(
             [].as_slice(),
             |acc: [u8], v: Field| {

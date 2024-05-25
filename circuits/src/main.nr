@@ -42,7 +42,7 @@ global Depth = 20;
 global BatchSize = 1 << 4;
 
 fn main(
-    public_params_hash: pub [u8; pub_encoding::KECCAK256_WIDTH],
+    public_params_hash: pub [u8; pub_encoding::BYTES_IN_KECCAK256],
     old: Field,
     new: Field,
     /// Time. Used to expire files that run out of money
