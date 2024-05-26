@@ -97,26 +97,24 @@
 			<div class="mb-4">
 				<p class="text-sm text-gray-600 overflow-hidden">Address: {getAddress()}</p>
 			</div>
-			<div class="mb-4">
-				<p class="text-sm text-gray-600">Balance: {balance}</p>
-			</div>
-			<div class="flex space-x-2">
-				<button
-					on:click={handleUpload}
-					class="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded"
-				>
-					Upload
-				</button>
+			<div class="flex flex-row items-baseline space-x-2">
+				<span class="text-sm text-gray-600">Balance: {balance}</span>
 				<button
 					on:click={handleMint}
 					class="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded"
 				>
-					Mint
+					Faucet
 				</button>
 			</div>
 		</div>
 		<div class="border-t pt-4">
 			<h2 class="text-xl font-bold mb-2">Files</h2>
+			<button
+				on:click={handleUpload}
+				class="bg-yellow-400 hover:bg-yellow-500 text-white font-bold py-2 px-4 rounded"
+			>
+				Upload
+			</button>
 			{#each files as file}
 				<div class="flex items-center mb-2">
 					<img src={file.url} alt={file.name} class="w-12 h-12 mr-2 rounded" />
