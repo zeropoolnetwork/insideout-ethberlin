@@ -39,7 +39,7 @@ services:
     networks:
       - app-network
     environment:
-      - PORT=81
+      - PORT=80
       - MASTER=http://rollup-node:80
       - VIRTUAL_HOST=node1.insideout.codes
       - LETSENCRYPT_HOST=node1.insideout.codes
@@ -73,7 +73,7 @@ services:
         - LETSENCRYPT_HOST=insideout.codes
         - LETSENCRYPT_EMAIL=mail@test.com
     ports:
-      - "3002:3002"
+      - "80:80"
     networks:
       - app-network
     environment:
