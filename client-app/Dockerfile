@@ -14,12 +14,12 @@ COPY common common
 RUN --mount=type=cache,id=pnpm,target=/root/.local/share/pnpm/store pnpm fetch
 COPY client-app client-app
 RUN pnpm install --recursive --frozen-lockfile
-RUN pnpm --recursive build
+RUN pnpm --recursive build 
 
 FROM nginx:alpine
 COPY client-app/nginx/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/client-app/build /usr/share/nginx/html
 
-EXPOSE 80 3000
+EXPOSE 80 3002
 
 CMD ["nginx", "-g", "daemon off;"]
