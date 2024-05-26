@@ -1,4 +1,5 @@
 <script lang="ts">
+	import { onMount, onDestroy } from 'svelte';
 	import { goto } from '$app/navigation';
 	import { initWallet, getAddress } from '$lib';
 	import {
@@ -52,11 +53,17 @@
 	let nodeStatus = true;
 	let rollupStatus = true;
 
-	setInterval(async () => {
-		let status = await checkStatus();
-		nodeStatus = status.node;
-		rollupStatus = status.rollup;
-	}, 1000);
+	onMount(async () => {
+		const interval = setInterval(async () => {
+			let status = await checkStatus();
+			nodeStatus = status.node;
+			rollupStatus = status.rollup;
+		}, 1000);
+
+		onDestroy(() => {
+			clearInterval(interval);
+		});
+	});
 
 	let promise = load();
 </script>
