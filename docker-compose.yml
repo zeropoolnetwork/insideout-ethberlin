@@ -72,8 +72,6 @@ services:
         - VIRTUAL_HOST=insideout.codes
         - LETSENCRYPT_HOST=insideout.codes
         - LETSENCRYPT_EMAIL=mail@test.com
-    port:
-      - "8080:8080"
     networks:
       - app-network
     environment:
