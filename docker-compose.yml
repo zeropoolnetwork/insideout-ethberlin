@@ -69,6 +69,9 @@ services:
         # ! Replace with proper domain names
         - PUBLIC_ROLLUP_API_URL=rollup.insideout.codes
         - PUBLIC_NODE_API_URL=node1.insideout.codes
+        - VIRTUAL_HOST=insideout.codes
+        - LETSENCRYPT_HOST=insideout.codes
+        - LETSENCRYPT_EMAIL=mail@test.com
     ports:
       - "3002:3002"
     networks:
