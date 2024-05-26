@@ -70,7 +70,7 @@ services:
         - PUBLIC_ROLLUP_API_URL=rollup.insideout.codes
         - PUBLIC_NODE_API_URL=node1.insideout.codes
     ports:
-      - "80:83"
+      - "3002:3002"
     networks:
       - app-network
     environment:
