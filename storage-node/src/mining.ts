@@ -34,7 +34,6 @@ export async function mine(
   tree: SparseMerkleTree,
   pk: Fr,
   oracle: Fr,
-  prg_seed: number,
 ): Promise<MiningResult | null> {
   const bb = tree.bb;
   const MAX_MINING_NONCE = 1048576;
