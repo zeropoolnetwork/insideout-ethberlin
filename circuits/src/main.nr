@@ -71,6 +71,7 @@ impl RollupPubInput {
 }
 
 
+#[export]
 fn main(
     pubhash: pub Field,
     input: RollupInput
