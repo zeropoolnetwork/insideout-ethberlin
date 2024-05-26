@@ -53,16 +53,17 @@
 	let nodeStatus = true;
 	let rollupStatus = true;
 
+	let interval: any;
 	onMount(async () => {
-		const interval = setInterval(async () => {
+		interval = setInterval(async () => {
 			let status = await checkStatus();
 			nodeStatus = status.node;
 			rollupStatus = status.rollup;
 		}, 1000);
+	});
 
-		onDestroy(() => {
-			clearInterval(interval);
-		});
+	onDestroy(() => {
+		clearInterval(interval);
 	});
 
 	let promise = load();
