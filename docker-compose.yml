@@ -74,7 +74,7 @@ services:
     networks:
       - app-network
     environment:
-      - MASTER=http://rollup-node:3000
+      - MASTER=http://rollup-node:80
       - VIRTUAL_HOST=client.insideout.codes
       - LETSENCRYPT_HOST=client.insideout.codes
       - LETSENCRYPT_EMAIL=mail@test.com
