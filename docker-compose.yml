@@ -73,7 +73,7 @@ services:
         - LETSENCRYPT_HOST=insideout.codes
         - LETSENCRYPT_EMAIL=mail@test.com
     ports:
-      - "80:80"
+      - "3002:3002"
     networks:
       - app-network
     environment:
