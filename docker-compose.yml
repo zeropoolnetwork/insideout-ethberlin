@@ -39,8 +39,8 @@ services:
     networks:
       - app-network
     environment:
-      - PORT=80
-      - MASTER=http://rollup-node:80
+      - PORT=3001
+      - MASTER=http://rollup-node:3000
 
   rollup-node:
     container_name: rollup-node
@@ -51,7 +51,7 @@ services:
     networks:
       - app-network
     environment:
-      - PORT=80
+      - PORT=3000
 
   client-app:
     container_name: client-app
