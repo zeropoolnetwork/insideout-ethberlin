@@ -43,8 +43,6 @@ services:
       - "80:80"
     networks:
       - app-network
-    environment:
-      - MASTER=http://rollup-node:3000
 
 networks:
   app-network:

@@ -55,12 +55,14 @@ services:
 
   client-app:
     container_name: client-app
+    depends_on:
+      - storage-node
+      - rollup-node
     restart: always
     build:
       context: .
       dockerfile: client-app/Dockerfile
       args:
-        # ! Replace with proper domain names
         - PUBLIC_ROLLUP_API_URL=https://insideout.codes/api/rollup
         - PUBLIC_NODE_API_URL=https://insideout.codes/api/storage
     networks:
