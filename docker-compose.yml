@@ -45,6 +45,8 @@ services:
     environment:
       - PORT=3001
       - MASTER=http://rollup-node:3000
+    volumes:
+      - accounts:/app/storage-node/files
 
   rollup-node:
     container_name: rollup-node
@@ -56,6 +58,8 @@ services:
       - app-network
     environment:
       - PORT=3000
+    volumes:
+      - accounts:/app/rollup-node/accounts
 
   client-app:
     container_name: client-app
