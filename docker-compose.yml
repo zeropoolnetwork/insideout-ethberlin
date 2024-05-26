@@ -63,8 +63,6 @@ services:
         # ! Replace with proper domain names
         - PUBLIC_ROLLUP_API_URL=https://insideout.codes/api/rollup
         - PUBLIC_NODE_API_URL=https://insideout.codes/api/storage
-    ports:
-      - "80:80"
     networks:
       - app-network
     environment:
