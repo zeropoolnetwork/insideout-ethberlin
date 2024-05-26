@@ -43,7 +43,7 @@ services:
         - PUBLIC_ROLLUP_API_URL=http://127.0.0.1:3000
         - PUBLIC_NODE_API_URL=http://127.0.0.1:3001
     ports:
-      - "8080:8080"
+      - "80:80"
     networks:
       - app-network
     environment:

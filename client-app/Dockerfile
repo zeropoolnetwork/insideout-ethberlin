@@ -20,6 +20,6 @@ FROM nginx:alpine
 COPY client-app/nginx/nginx.conf /etc/nginx/conf.d/default.conf
 COPY --from=build /app/client-app/build /usr/share/nginx/html
 
-EXPOSE 8080
+EXPOSE 80 3002
 
 CMD ["nginx", "-g", "daemon off;"]
