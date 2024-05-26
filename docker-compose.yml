@@ -46,7 +46,7 @@ services:
       - PORT=3001
       - MASTER=http://rollup-node:3000
     volumes:
-      - accounts:/app/storage-node/files
+      - files:/app/storage-node/files
 
   rollup-node:
     container_name: rollup-node
@@ -86,6 +86,8 @@ volumes:
   certs:
   acme:
   conf:
+  files:
+  accounts:
 
 
 networks:
