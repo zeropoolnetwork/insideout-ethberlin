@@ -11,7 +11,7 @@ interface FileMetadata {
 export async function uploadFile(file: File, ownerId: string): Promise<string> {
   const data = await file.arrayBuffer();
   const dataBase64 = btoa(String.fromCharCode(...new Uint8Array(data)));
-  const response = await fetch('http://localhost:3000/files', {
+  const response = await fetch(`${ROLLUP_API_URL}/files`, {
     method: 'POST',
     headers: {
       'Accept': 'application/json',
