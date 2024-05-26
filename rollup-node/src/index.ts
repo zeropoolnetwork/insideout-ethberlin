@@ -88,6 +88,15 @@ app.post('/files', async (req: Request, res: Response) => {
 
   io.emit('uploadFile', data, fileName, { ...metadata, expirationDate });
 
+  await new Promise((resolve) => {
+    // FIXME: mine a block here, /files should block until the block is mined.
+    // 1. broadcast challenges to all storage nodes (save all sockets into an array and socket.emit over each one instead of broadcasting)
+    // 2. wait for a single storage node to solve the challenge
+    // 3. generate a proof
+    // 4. submit the new block to the smart contract
+    setTimeout(resolve, 2000);
+  });
+
   account.files.push(fileName);
   account.balance -= RESERVATION_COST;
   await state.accounts.put(metadata.ownerId as string, account);
