@@ -67,8 +67,8 @@ services:
       dockerfile: client-app/Dockerfile
       args:
         # ! Replace with proper domain names
-        - PUBLIC_ROLLUP_API_URL=insideout.codes
-        - PUBLIC_NODE_API_URL=insideout.codes
+        - PUBLIC_ROLLUP_API_URL=rollup.insideout.codes
+        - PUBLIC_NODE_API_URL=node1.insideout.codes
     ports:
       - "80:80"
     networks:
