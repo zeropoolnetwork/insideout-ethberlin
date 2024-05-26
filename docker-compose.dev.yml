@@ -15,9 +15,6 @@ services:
     environment:
       - PORT=3001
       - MASTER=http://rollup-node:3000
-      - VIRTUAL_HOST=node1.sd-test.zeropool.network
-      - LETSENCRYPT_HOST=node1.sd-test.zeropool.network
-      - LETSENCRYPT_EMAIL=mail@test.com
 
   rollup-node:
     container_name: rollup-node
@@ -30,20 +27,20 @@ services:
       - "3000:3000"
     environment:
       - PORT=3000
-      - VIRTUAL_HOST=rollup.sd-test.zeropool.network
-      - LETSENCRYPT_HOST=rollup.sd-test.zeropool.network
-      - LETSENCRYPT_EMAIL=mail@test.com
 
   client-app:
     container_name: client-app
+    depends_on:
+      - storage-node
+      - rollup-node
     build:
       context: .
       dockerfile: client-app/Dockerfile
       args:
-        - PUBLIC_ROLLUP_API_URL=http://127.0.0.1:3000
-        - PUBLIC_NODE_API_URL=http://127.0.0.1:3001
+        - PUBLIC_ROLLUP_API_URL=http://127.0.0.1/api/rollup
+        - PUBLIC_NODE_API_URL=http://127.0.0.1/api/storage
     ports:
-      - "3002:3002"
+      - "80:80"
     networks:
       - app-network
     environment:

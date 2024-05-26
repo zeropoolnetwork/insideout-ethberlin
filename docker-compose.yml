@@ -41,9 +41,6 @@ services:
     environment:
       - PORT=80
       - MASTER=http://rollup-node:80
-      - VIRTUAL_HOST=node1.insideout.codes
-      - LETSENCRYPT_HOST=node1.insideout.codes
-      - LETSENCRYPT_EMAIL=mail@test.com
 
   rollup-node:
     container_name: rollup-node
@@ -55,9 +52,6 @@ services:
       - app-network
     environment:
       - PORT=80
-      - VIRTUAL_HOST=rollup.insideout.codes
-      - LETSENCRYPT_HOST=rollup.insideout.codes
-      - LETSENCRYPT_EMAIL=mail@test.com
 
   client-app:
     container_name: client-app
@@ -67,19 +61,15 @@ services:
       dockerfile: client-app/Dockerfile
       args:
         # ! Replace with proper domain names
-        - PUBLIC_ROLLUP_API_URL=rollup.insideout.codes
-        - PUBLIC_NODE_API_URL=node1.insideout.codes
-        - VIRTUAL_HOST=insideout.codes
-        - LETSENCRYPT_HOST=insideout.codes
-        - LETSENCRYPT_EMAIL=mail@test.com
+        - PUBLIC_ROLLUP_API_URL=https://insideout.codes/api/rollup
+        - PUBLIC_NODE_API_URL=https://insideout.codes/api/storage
     ports:
-      - "3002:3002"
+      - "80:80"
     networks:
       - app-network
     environment:
-      - MASTER=http://rollup-node:80
-      - VIRTUAL_HOST=client.insideout.codes
-      - LETSENCRYPT_HOST=client.insideout.codes
+      - VIRTUAL_HOST=insideout.codes
+      - LETSENCRYPT_HOST=insideout.codes
       - LETSENCRYPT_EMAIL=mail@test.com
 
 volumes:
